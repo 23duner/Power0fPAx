@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>白举纲歌词猜猜看</title>
+    <style>
+        body {
+            background-color: #f5f5f5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            position: relative; /* 为水印做准备 */
+        }
+
+        /* 水印样式 */
+        .watermark {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 40px;
+            color: rgba(13, 219, 30, 0.3);
+            z-index: 1000;
+            pointer-events: none; /* 不干扰点击 */
+            font-weight: bold;
+        }
+
+        .container {
+            max-width: 700px;
+            width: 100%;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            box-sizing: border-box;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 头部 */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #2c3e50;
+        }
+
+        .sound-btn {
+            cursor: pointer;
+            font-size: 14px;
+            color: #3498db;
+        }
+
+        /* 游戏区域 */
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            background: #fafafa;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .rules {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        /* 歌词网格 */
+        .lyrics-container {
+            margin-bottom: 20px;
+        }
+
+        /* 歌名行 - 单独第一行 */
+        .song-title-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 4px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f0f8ff;
+            border-radius: 4px;
+            border: 2px solid #e3f2fd;
+        }
+
+        /* 歌词行 */
+        .lyrics-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 4px;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #fafafa;
+            border-radius: 4px;
+        }
+
+        .word-cell {
+            width: 28px;
+            height: 28px;
+            line-height: 28px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            position: relative;
+            border-radius: 4px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        /* 遮罩层 */
+        .mask {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #27ae60;
+            border-radius: 4px;
+            transition: opacity 0.3s ease;
+        }
+
+        .mask.revealed {
+            opacity: 0;
+        }
+
+        /* 标点符号不需要遮罩 */
+        .punc {
+            width: auto;
+            min-width: 8px;
+            background: none;
+            color: #333;
+        }
+        .punc .mask {
+            display: none;
+        }
+
+        /* 输入区 */
+        .input-area {
+            display: flex;
+            margin-bottom: 15px;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 4px 0 0 4px;
+            outline: none;
+            text-align: center;
+        }
+
+        .input-area button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* 错误记录 */
+        .wrong-words {
+            font-size: 14px;
+            color: #e74c3c;
+            min-height: 24px;
+            padding: 5px 0;
+            border-top: 1px dashed #eee;
+        }
+
+        /* 控制按钮 */
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .control-buttons button {
+            flex: 1;
+            padding: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background: #ecf0f1;
+            color: #333;
+        }
+
+        .control-buttons button:hover {
+            background: #d5dbdb;
+        }
+
+        /* 胜利弹窗 */
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
+        }
+
+        .overlay.active {
+            display: flex;
+        }
+
+        .popup {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .popup h2 {
+            margin-top: 0;
+            color: #27ae60;
+        }
+
+        .popup p {
+            text-align: left;
+            line-height: 1.6;
+            color: #555;
+        }
+
+        #next-btn {
+            margin-top: 20px;
+            padding: 10px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="watermark">23墩儿</div>
+
+<div class="container">
+    <div class="header">
+        <h1>🎤 白举纲歌词猜猜看</h1>
+        <div class="sound-btn" onclick="toggleSound()">🔈 点击激活声音</div>
+    </div>
+
+    <div class="game-info">
+        <span>已猜次数：<strong id="guess-count">0</strong></span>
+        <span>用时：<strong id="timer">00:00</strong></span>
+    </div>
+
+    <div class="rules">
+        输入一个字，若歌词中有该字，则全部点亮。<br>
+        猜出第一行歌名即胜利！
+    </div>
+
+    <!-- 歌词展示区 -->
+    <div id="lyrics-container" class="lyrics-container"></div>
+
+    <!-- 输入区 -->
+    <div class="input-area">
+        <input type="text" id="guess-input" maxlength="1" placeholder="输入一字">
+        <button onclick="handleGuess()">猜字</button>
+    </div>
+
+    <!-- 控制按钮 -->
+    <div class="control-buttons">
+        <button onclick="initGame()">新游戏</button>
+        <button onclick="showAnswer()">查看答案</button>
+    </div>
+
+    <!-- 错误区 -->
+    <div class="wrong-words" id="wrong-words">猜错的字：</div>
+</div>
+
+<!-- 音效 -->
+<audio id="correct-sound" preload="auto">
+    <source src="correct.mp3" type="audio/mpeg">
+</audio>
+<audio id="wrong-sound" preload="auto">
+    <source src="wrong.mp3" type="audio/mpeg">
+</audio>
+
+<!-- 胜利弹窗 -->
+<div id="overlay" class="overlay">
+    <div class="popup">
+        <h2 id="popup-title">🎉 恭喜过关！</h2>
+        <div id="popup-content"></div>
+        <button id="next-btn">下一首</button>
+    </div>
+</div>
+
+<!-- 引入题库文件 -->
+<script src="songs.js"></script>
+
+<script>
+    // ====== 全局变量 ======
+    let currentSong = null;
+    let guessedLetters = new Set();
+    let guessCount = 0;
+    let startTime = null;
+    let timerInterval = null;
+    let audioContext = null;
+
+    // ====== 初始化 ======
+    function initGame() {
+        // 随机选择一首歌
+        currentSong = questionBank[Math.floor(Math.random() * questionBank.length)];
+        guessedLetters.clear();
+        guessCount = 0;
+        
+        document.getElementById('guess-count').innerText = 0;
+        document.getElementById('wrong-words').innerHTML = '猜错的字：';
+        
+        // 重置计时器
+        clearInterval(timerInterval);
+        startTime = new Date();
+        document.getElementById('timer').innerText = '00:00';
+        startTimer();
+        
+        renderGrid();
+        document.getElementById('guess-input').focus();
+    }
+
+    // ====== 渲染网格 ======
+    function renderGrid() {
+        const container = document.getElementById('lyrics-container');
+        container.innerHTML = '';
+        
+        // 1. 渲染歌名（单独第一行）
+        const titleRow = document.createElement('div');
+        titleRow.className = 'song-title-row';
+        
+        for (let char of currentSong.title) {
+            const cell = createWordCell(char);
+            titleRow.appendChild(cell);
+        }
+        container.appendChild(titleRow);
+        
+        // 2. 渲染歌词（按原始分行）
+        const lyricsLines = currentSong.lyrics.split(/[ ，；。\s]+/);
+        
+        for (let line of lyricsLines) {
+            const lineRow = document.createElement('div');
+            lineRow.className = 'lyrics-row';
+            
+            for (let char of line) {
+                const cell = createWordCell(char);
+                lineRow.appendChild(cell);
+            }
+            container.appendChild(lineRow);
+        }
+    }
+
+    // 创建单个文字单元格
+    function createWordCell(char) {
+        const cell = document.createElement('span');
+        cell.className = 'word-cell';
+        
+        // 判断是否是标点符号或空格
+        if (/[\s！？，。、;:'"()《》]/.test(char)) {
+            cell.classList.add('punc');
+            cell.innerText = char === ' ' ? ' ' : char;
+        } else {
+            cell.innerText = char;
+            const mask = document.createElement('div');
+            mask.className = 'mask';
+                
+            // 如果已经猜过，直接显示
+            if (guessedLetters.has(char)) {
+                mask.classList.add('revealed');
+            }
+            cell.appendChild(mask);
+        }
+        return cell;
+    }
+
+    // ====== 猜字逻辑 ======
+    function handleGuess() {
+        const input = document.getElementById('guess-input');
+        const letter = input.value.trim();
+        if (!letter) return;
+
+        guessCount++;
+        document.getElementById('guess-count').innerText = guessCount;
+
+        // 检查是否在歌名或歌词中
+        const fullText = currentSong.title + ' ' + currentSong.lyrics;
+            
+        if (fullText.includes(letter)) {
+            guessedLetters.add(letter);
+            renderGrid();
+            playCorrectSound(); // 播放答对音效
+            checkWin();
+        } else {
+            // 记录错误
+            const wrongDiv = document.getElementById('wrong-words');
+            wrongDiv.innerHTML += ` ${letter}`;
+            playWrongSound(); // 播放答错音效
+        }
+
+        input.value = '';
+        input.focus();
+    }
+
+    // ====== 胜利判定 ======
+    function checkWin() {
+        const titleChars = currentSong.title.replace(/[\s！？，。、;:'"()《》]/g, '');
+        const isWin = [...titleChars].every(char => guessedLetters.has(char));
+            
+        if (isWin) {
+            clearInterval(timerInterval);
+            showVictoryPopup();
+        }
+    }
+
+    // ====== 显示胜利弹窗 ======
+    function showVictoryPopup() {
+        const overlay = document.getElementById('overlay');
+        const popupTitle = document.getElementById('popup-title');
+        const popupContent = document.getElementById('popup-content');
+            
+        popupTitle.innerText = `🎉 好耶- ̗̀꒰ᐢ • ˕ • ᐢ꒱ ̖́-《${currentSong.title}》`;
+            
+        // 显示歌曲描述
+        let descriptionHtml = '';
+        if (currentSong.description) {
+            descriptionHtml = `
+                <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498db;">
+                    <h3 style="margin-top: 0; color: #2c3e50;">💡 创作初心/歌曲描述</h3>
+                    <p>${currentSong.description}</p>
+                </div>
+            `;
+        }
+            
+        popupContent.innerHTML = `
+            <div>
+                <h3>完整歌词：</h3>
+                <p style="white-space: pre-line;">${currentSong.lyrics}</p>
+                ${descriptionHtml}
+            </div>
+        `;
+            
+        overlay.classList.add('active');
+    }
+
+    // ====== 显示答案 ======
+    function showAnswer() {
+        clearInterval(timerInterval);
+        guessedLetters.clear();
+        // 显示所有字
+        const fullText = currentSong.title + ' ' + currentSong.lyrics;
+        for (let char of fullText) {
+            if (!/[\s！？，。、;:'"()《》]/.test(char)) {
+                guessedLetters.add(char);
+            }
+        }
+        renderGrid();
+            
+        // 显示弹窗
+        const overlay = document.getElementById('overlay');
+        const popupTitle = document.getElementById('popup-title');
+        const popupContent = document.getElementById('popup-content');
+            
+        popupTitle.innerText = `💡 答案是：《${currentSong.title}》`;
+            
+        let descriptionHtml = '';
+        if (currentSong.description) {
+            descriptionHtml = `
+                <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498db;">
+                    <h3 style="margin-top: 0; color: #2c3e50;">💡 创作初心/歌曲描述</h3>
+                    <p>${currentSong.description}</p>
+                </div>
+            `;
+        }
+            
+        popupContent.innerHTML = `
+            <div>
+                <h3>完整歌词：</h3>
+                <p style="white-space: pre-line;">${currentSong.lyrics}</p>
+                ${descriptionHtml}
+            </div>
+        `;
+            
+        overlay.classList.add('active');
+    }
+
+    // ====== 计时器 ======
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            const now = new Date();
+            const diff = Math.floor((now - startTime) / 1000);
+            const minutes = String(Math.floor(diff / 60)).padStart(2, '0');
+            const seconds = String(diff % 60).padStart(2, '0');
+            document.getElementById('timer').innerText = `${minutes}:${seconds}`;
+        }, 1000);
+    }
+
+    // ====== 音效 ======
+    function toggleSound() {
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            alert('声音已激活！');
+        }
+    }
+
+    function playCorrectSound() {
+        const audio = document.getElementById('correct-sound');
+        if (audioContext) {
+            audio.currentTime = 0;
+            audio.play().catch(e => console.log("音效播放失败:", e));
+        }
+    }
+
+    function playWrongSound() {
+        const audio = document.getElementById('wrong-sound');
+        if (audioContext) {
+            audio.currentTime = 0;
+            audio.play().catch(e => console.log("音效播放失败:", e));
+        }
+    }
+
+    // 绑定回车键
+    document.getElementById('guess-input').addEventListener('keypress', e => {
+        if (e.key === 'Enter') handleGuess();
+    });
+
+    // 下一首按钮
+    document.getElementById('next-btn').addEventListener('click', function() {
+        document.getElementById('overlay').classList.remove('active');
+        initGame();
+    });
+
+    // 启动游戏
+    initGame();
+</script>
+
+</body>
+</html>
