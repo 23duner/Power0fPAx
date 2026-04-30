@@ -13,7 +13,7 @@
             padding: 20px;
             display: flex;
             justify-content: center;
-            position: relative; /* 为水印做准备 */
+            position: relative;
         }
 
         /* 水印样式 */
@@ -24,7 +24,7 @@
             font-size: 40px;
             color: rgba(13, 219, 30, 0.3);
             z-index: 1000;
-            pointer-events: none; /* 不干扰点击 */
+            pointer-events: none;
             font-weight: bold;
         }
 
@@ -78,6 +78,28 @@
             color: #666;
             margin-bottom: 20px;
             line-height: 1.6;
+        }
+
+        /* 控制按钮 - 移动到歌词前面 */
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .control-buttons button {
+            flex: 1;
+            padding: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background: #ecf0f1;
+            color: #333;
+        }
+
+        .control-buttons button:hover {
+            background: #d5dbdb;
         }
 
         /* 歌词网格 */
@@ -176,35 +198,13 @@
             border-radius: 0 4px 4px 0;
         }
 
-        /* 错误记录 */
-        .wrong-words {
+        /* 已猜过的字 */
+        .guessed-words {
             font-size: 14px;
-            color: #e74c3c;
+            color: #3498db;
             min-height: 24px;
             padding: 5px 0;
             border-top: 1px dashed #eee;
-        }
-
-        /* 控制按钮 */
-        .control-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .control-buttons button {
-            flex: 1;
-            padding: 10px;
-            font-size: 14px;
-            cursor: pointer;
-            border: none;
-            border-radius: 4px;
-            background: #ecf0f1;
-            color: #333;
-        }
-
-        .control-buttons button:hover {
-            background: #d5dbdb;
         }
 
         /* 胜利弹窗 */
@@ -247,15 +247,44 @@
             color: #555;
         }
 
-        #next-btn {
+        .popup-buttons {
+            display: flex;
+            gap: 10px;
             margin-top: 20px;
-            padding: 10px 30px;
+            justify-content: center;
+        }
+
+        .popup-buttons button {
+            padding: 10px 20px;
             font-size: 16px;
             cursor: pointer;
-            background-color: #27ae60;
-            color: white;
             border: none;
             border-radius: 5px;
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .popup-buttons button.secondary {
+            background-color: #95a5a6;
+        }
+
+        /* 提示框样式 */
+        .alert-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            z-index: 1002;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .alert-box.show {
+            opacity: 1;
         }
     </style>
 </head>
@@ -279,6 +308,12 @@
         猜出第一行歌名即胜利！
     </div>
 
+    <!-- 控制按钮 - 移动到歌词前面 -->
+    <div class="control-buttons">
+        <button onclick="initGame()">新游戏</button>
+        <button onclick="showAnswer()">查看答案</button>
+    </div>
+
     <!-- 歌词展示区 -->
     <div id="lyrics-container" class="lyrics-container"></div>
 
@@ -288,14 +323,8 @@
         <button onclick="handleGuess()">猜字</button>
     </div>
 
-    <!-- 控制按钮 -->
-    <div class="control-buttons">
-        <button onclick="initGame()">新游戏</button>
-        <button onclick="showAnswer()">查看答案</button>
-    </div>
-
-    <!-- 错误区 -->
-    <div class="wrong-words" id="wrong-words">歌词里没有这个字o.O：</div>
+    <!-- 已猜过的字 -->
+    <div class="guessed-words" id="guessed-words">已经猜过的字：</div>
 </div>
 
 <!-- 音效 -->
@@ -311,9 +340,15 @@
     <div class="popup">
         <h2 id="popup-title">🎉 恭喜过关！</h2>
         <div id="popup-content"></div>
-        <button id="next-btn">下一首</button>
+        <div class="popup-buttons">
+            <button id="back-btn">返回继续猜</button>
+            <button id="next-btn" class="secondary">下一首</button>
+        </div>
     </div>
 </div>
+
+<!-- 提示框 -->
+<div id="alert-box" class="alert-box"></div>
 
 <!-- 引入题库文件 -->
 <script src="songs.js"></script>
@@ -322,6 +357,7 @@
     // ====== 全局变量 ======
     let currentSong = null;
     let guessedLetters = new Set();
+    let guessedWords = new Set(); // 存储所有用户输入过的字
     let guessCount = 0;
     let startTime = null;
     let timerInterval = null;
@@ -332,10 +368,11 @@
         // 随机选择一首歌
         currentSong = questionBank[Math.floor(Math.random() * questionBank.length)];
         guessedLetters.clear();
+        guessedWords.clear(); // 清空已猜过的字
         guessCount = 0;
         
         document.getElementById('guess-count').innerText = 0;
-        document.getElementById('wrong-words').innerHTML = '歌词里没有这个字o.O：';
+        updateGuessedWordsDisplay(); // 更新已猜过的字显示
         
         // 重置计时器
         clearInterval(timerInterval);
@@ -345,6 +382,24 @@
         
         renderGrid();
         document.getElementById('guess-input').focus();
+    }
+
+    // ====== 更新已猜过的字显示 ======
+    function updateGuessedWordsDisplay() {
+        const guessedDiv = document.getElementById('guessed-words');
+        const wordsArray = Array.from(guessedWords);
+        guessedDiv.innerHTML = `已经猜过的字：${wordsArray.join(' ')}`;
+    }
+
+    // ====== 显示提示框 ======
+    function showAlert(message) {
+        const alertBox = document.getElementById('alert-box');
+        alertBox.innerText = message;
+        alertBox.classList.add('show');
+        
+        setTimeout(() => {
+            alertBox.classList.remove('show');
+        }, 1500); // 1.5秒后自动消失
     }
 
     // ====== 渲染网格 ======
@@ -362,7 +417,7 @@
         }
         container.appendChild(titleRow);
         
-        // 2. 渲染歌词（按原始分行）
+        // 2. 渲染歌词（按空格、句号、逗号、分号分行）
         const lyricsLines = currentSong.lyrics.split(/[ ，；。\s]+/);
         
         for (let line of lyricsLines) {
@@ -406,6 +461,18 @@
         const letter = input.value.trim();
         if (!letter) return;
 
+        // 检查是否已经猜过这个字
+        if (guessedWords.has(letter)) {
+            showAlert(`"${letter}"猜过了`);
+            input.value = '';
+            input.focus();
+            return;
+        }
+
+        // 记录这个字
+        guessedWords.add(letter);
+        updateGuessedWordsDisplay();
+        
         guessCount++;
         document.getElementById('guess-count').innerText = guessCount;
 
@@ -415,13 +482,13 @@
         if (fullText.includes(letter)) {
             guessedLetters.add(letter);
             renderGrid();
-            playCorrectSound(); // 播放答对音效
+            playCorrectSound();
+            showAlert(`歌词里有"${letter}"`);
             checkWin();
         } else {
             // 记录错误
-            const wrongDiv = document.getElementById('wrong-words');
-            wrongDiv.innerHTML += ` ${letter}`;
-            playWrongSound(); // 播放答错音效
+            playWrongSound();
+            showAlert(`歌词里没有"${letter}"`);
         }
 
         input.value = '';
@@ -469,10 +536,8 @@
         overlay.classList.add('active');
     }
 
-    // ====== 显示答案 ======
+    // ====== 显示答案（不弹出弹窗）======
     function showAnswer() {
-        clearInterval(timerInterval);
-        guessedLetters.clear();
         // 显示所有字
         const fullText = currentSong.title + ' ' + currentSong.lyrics;
         for (let char of fullText) {
@@ -481,34 +546,22 @@
             }
         }
         renderGrid();
-            
-        // 显示弹窗
-        const overlay = document.getElementById('overlay');
-        const popupTitle = document.getElementById('popup-title');
-        const popupContent = document.getElementById('popup-content');
-            
-        popupTitle.innerText = `💡 答案是：《${currentSong.title}》`;
-            
-        let descriptionHtml = '';
-        if (currentSong.description) {
-            descriptionHtml = `
-                <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498db;">
-                    <h3 style="margin-top: 0; color: #2c3e50;">💡 创作初心/歌曲描述</h3>
-                    <p>${currentSong.description}</p>
-                </div>
-            `;
-        }
-            
-        popupContent.innerHTML = `
-            <div>
-                <h3>完整歌词：</h3>
-                <p style="white-space: pre-line;">${currentSong.lyrics}</p>
-                ${descriptionHtml}
-            </div>
-        `;
-            
-        overlay.classList.add('active');
+        
+        // 不弹出弹窗，只是显示答案
+        showAlert(`答案：《${currentSong.title}》`);
     }
+
+    // ====== 返回继续猜 ======
+    document.getElementById('back-btn').addEventListener('click', function() {
+        document.getElementById('overlay').classList.remove('active');
+        document.getElementById('guess-input').focus();
+    });
+
+    // ====== 下一首按钮 ======
+    document.getElementById('next-btn').addEventListener('click', function() {
+        document.getElementById('overlay').classList.remove('active');
+        initGame();
+    });
 
     // ====== 计时器 ======
     function startTimer() {
@@ -548,12 +601,6 @@
     // 绑定回车键
     document.getElementById('guess-input').addEventListener('keypress', e => {
         if (e.key === 'Enter') handleGuess();
-    });
-
-    // 下一首按钮
-    document.getElementById('next-btn').addEventListener('click', function() {
-        document.getElementById('overlay').classList.remove('active');
-        initGame();
     });
 
     // 启动游戏
