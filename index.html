@@ -417,8 +417,8 @@
         }
         container.appendChild(titleRow);
         
-        // 2. 渲染歌词（按空格、句号、逗号、分号分行）
-        const lyricsLines = currentSong.lyrics.split(/[ ，；。\s]+/);
+        // 2. 渲染歌词（按空格、句号、逗号、分号分行，但括号内容不拆分）
+        const lyricsLines = splitLyricsLineKeepingParentheses(currentSong.lyrics);
         
         for (let line of lyricsLines) {
             const lineRow = document.createElement('div');
@@ -432,13 +432,66 @@
         }
     }
 
+    // ====== 新增函数：分割歌词行，确保括号内容不被拆分 ======
+    function splitLyricsLineKeepingParentheses(text) {
+        const result = [];
+        let currentPart = '';
+        let inParentheses = false;
+        
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            
+            // 检查是否是括号
+            if (char === '（' || char === '）') {
+                if (char === '（') {
+                    inParentheses = true;
+                    currentPart += char;
+                } else if (char === '）') {
+                    inParentheses = false;
+                    currentPart += char;
+                    // 括号结束，将当前部分加入结果
+                    if (currentPart.trim()) {
+                        result.push(currentPart.trim());
+                    }
+                    currentPart = '';
+                }
+                continue;
+            }
+            
+            // 如果在括号内，直接添加字符
+            if (inParentheses) {
+                currentPart += char;
+                continue;
+            }
+            
+            // 如果不是在括号内，检查是否是分隔符
+            if (/[ ，；。\s]/.test(char)) {
+                // 如果是分隔符，将当前部分加入结果
+                if (currentPart.trim()) {
+                    result.push(currentPart.trim());
+                }
+                currentPart = '';
+            } else {
+                // 不是分隔符，添加到当前部分
+                currentPart += char;
+            }
+        }
+        
+        // 添加最后一部分
+        if (currentPart.trim()) {
+            result.push(currentPart.trim());
+        }
+        
+        return result;
+    }
+
     // 创建单个文字单元格
     function createWordCell(char) {
         const cell = document.createElement('span');
         cell.className = 'word-cell';
         
         // 判断是否是标点符号或空格
-        if (/[\s！？，。、;:'"()《》]/.test(char)) {
+        if (/[\s！？，。、;:'"()《》（）【】]/.test(char)) {
             cell.classList.add('punc');
             cell.innerText = char === ' ' ? ' ' : char;
         } else {
