@@ -21,7 +21,7 @@
             position: fixed;
             bottom: 10px;
             right: 10px;
-            font-size: 40px;
+            font-size: 23px;
             color: rgba(13, 219, 30, 0.3);
             z-index: 1000;
             pointer-events: none;
@@ -290,12 +290,13 @@
 </head>
 <body>
 
-<div class="watermark">@23墩儿</div>
+<div class="watermark">@23墩儿<br>数据源@Echo_白举纲资源站</div>
 
 <div class="container">
     <div class="header">
-        <h1>🎤 勇敢纲纲猜猜猜⁽⁽ଘ( ˊᵕˋ )ଓ⁾⁾</h1>
-        <div class="sound-btn" onclick="toggleSound()">🔈 激活声音有惊喜＼＼\\٩( 'ω' )و //／／ </div>
+        <h1>🎤 勇敢纲纲猜猜猜</h1>
+        <br>
+        <div class="sound-btn" onclick="toggleSound()">🔈 点击激活声音有惊喜<br>＼＼\\٩( 'ω' )و //／／ </div>
     </div>
 
     <div class="game-info">
@@ -304,13 +305,14 @@
     </div>
 
     <div class="rules">
-        输入一个字，若歌词中有该字，则全部点亮。<br>
-        𖠚ᐝ猜出第一行歌名即胜利！
+        这些方块下是白白的某一首歌、第一行是歌名。<br>
+        输入一个字，若歌词中有该字，则全部点亮！<br>
+        𖠚ᐝ 猜出第一行歌名即胜利！
     </div>
 
     <!-- 控制按钮 - 移动到歌词前面 -->
     <div class="control-buttons">
-        <button onclick="initGame()">新游戏</button>
+        <button onclick="initGame()">再来一局</button>
         <button onclick="showAnswer()">查看答案</button>
     </div>
 
@@ -318,7 +320,7 @@
 
     <!-- 输入区 -->
     <div class="input-area">
-        <input type="text" id="guess-input" maxlength="1" placeholder="输入一字 如：梦">
+        <input type="text" id="guess-input" maxlength="1" placeholder="输入一个字 如：梦">
         <button onclick="handleGuess()">猜！</button>
     </div>
 
@@ -330,12 +332,30 @@
 </div>
 
 <!-- 音效 -->
-<audio id="correct-sound" preload="auto">
-    <source src="correct.mp3" type="audio/mpeg">
+<!-- 在现有的音效代码后添加 -->
+<!-- 正确音效库 -->
+<audio id="correct-sound-1" preload="auto">
+    <source src="correct/correct1.mp3" type="audio/mpeg">
 </audio>
-<audio id="wrong-sound" preload="auto">
-    <source src="wrong.mp3" type="audio/mpeg">
+<audio id="correct-sound-2" preload="auto">
+    <source src="correct/correct2.mp3" type="audio/mpeg">
 </audio>
+<audio id="correct-sound-3" preload="auto">
+    <source src="correct/correct3.mp3" type="audio/mpeg">
+</audio>
+
+
+<!-- 错误音效库 -->
+<audio id="wrong-sound-1" preload="auto">
+    <source src="wrong/wrong1.mp3" type="audio/mpeg">
+</audio>
+<audio id="wrong-sound-2" preload="auto">
+    <source src="wrong/wrong2.mp3" type="audio/mpeg">
+</audio>
+<audio id="wrong-sound-3" preload="auto">
+    <source src="wrong/wrong3.mp3" type="audio/mpeg">
+</audio>
+
 
 <!-- 胜利弹窗 -->
 <div id="overlay" class="overlay">
@@ -363,7 +383,7 @@
     let guessCount = 0;
     let startTime = null;
     let timerInterval = null;
-    let audioContext = null;
+    
 
     // ====== 初始化 ======
     function initGame() {
@@ -512,6 +532,8 @@
 
     // ====== 猜字逻辑 ======
     function handleGuess() {
+
+        toggleSound();
         const input = document.getElementById('guess-input');
         const letter = input.value.trim();
         if (!letter) return;
@@ -628,36 +650,54 @@
             document.getElementById('timer').innerText = `${minutes}:${seconds}`;
         }, 1000);
     }
-
-    // ====== 音效 ======
+    
+    
+    
+    // ====== 音频系统 ======
     function toggleSound() {
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            audioContext.resume();
             alert('声音已激活！');
         }
     }
 
-    function playCorrectSound() {
-        const audio = document.getElementById('correct-sound');
-        if (audioContext) {
-            audio.currentTime = 0;
-            audio.play().catch(e => console.log("音效播放失败:", e));
+    // ====== 音效库 ======
+    let audioContext = null;
+    let correctSounds = [];
+    let wrongSounds = [];
+
+            // 初始化音效库
+    function initSoundLibrary() {
+        for (let i = 1; i <= 3; i++) {
+            const c = document.getElementById(`correct-sound-${i}`);
+            const w = document.getElementById(`wrong-sound-${i}`);
+            if (c) correctSounds.push(c);
+            if (w) wrongSounds.push(w);
         }
     }
 
+    function playCorrectSound() {
+        if (!audioContext || !correctSounds.length) return;
+        const a = correctSounds[Math.floor(Math.random() * correctSounds.length)];
+        a.currentTime = 0;
+        a.play().catch(() => {});
+    }
+
     function playWrongSound() {
-        const audio = document.getElementById('wrong-sound');
-        if (audioContext) {
-            audio.currentTime = 0;
-            audio.play().catch(e => console.log("音效播放失败:", e));
-        }
+        if (!audioContext || !wrongSounds.length) return;
+        const a = wrongSounds[Math.floor(Math.random() * wrongSounds.length)];
+        a.currentTime = 0;
+        a.play().catch(() => {});
     }
 
     // 绑定回车键
     document.getElementById('guess-input').addEventListener('keypress', e => {
         if (e.key === 'Enter') handleGuess();
     });
-
+    document.addEventListener('DOMContentLoaded', () => {
+        initSoundLibrary(); // ✅ 关键：加载音效
+    });
     // 启动游戏
     initGame();
 </script>

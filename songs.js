@@ -452,7 +452,7 @@ const questionBank = [
   },
   {
     "title": "小小白之歌",
-    "lyrics": "",
+    "lyrics": "（暂无歌词）",
     "description": "暂无描述"
   }
 ]
