@@ -603,6 +603,19 @@
         
         // 每次输入都增加猜词次数（包括重复输入）
         guessCount++;
+        // 检查提示
+        if (guessCount >= 13 && !tipsShown[13]) {
+            tipsShown[13] = true;
+            document.getElementById('tips-btn').classList.add('has-new-message');
+        }
+        if (guessCount >= 23 && !tipsShown[23]) {
+            tipsShown[23] = true;
+            document.getElementById('tips-btn').classList.add('has-new-message');
+        }
+        if (guessCount >= 32 && !tipsShown[32]) {
+            tipsShown[32] = true;
+            document.getElementById('tips-btn').classList.add('has-new-message');
+        }
         document.getElementById('guess-count').innerText = guessCount;
     
         // 检查是否已经猜过这个字
@@ -854,13 +867,13 @@
         
         // 2. 历史提示部分
         html += '<div style="margin-bottom: 20px;">';
-        html += '<h3 style="color: #2c3e50;">📝 提示</h3>';
+        html += '<h3 style="color: #2c3e50;">📝 更多提示</h3>';
         
         // 第13次提示（如果已显示）
                
         if (tipsShown[13]) {
             html += `<div style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">`;
-            html += `<p><strong>提示1：</strong><a href="https://my.feishu.cn/share/base/dashboard/shrcncemYWUU7l4w0mGZUi3mjCf" target="_blank" style="color: #3498db; text-decoration: none;">点击查看词云图</a></p>`;
+            html += `<p><strong>提示1：</strong>可以试试词云图中较大的词频哦(●'◡'●)<a href="https://my.feishu.cn/share/base/dashboard/shrcncemYWUU7l4w0mGZUi3mjCf" target="_blank" style="color: #3498db; text-decoration: none;">点击查看词云图</a></p>`;
             html += '</div>';
         }
         
