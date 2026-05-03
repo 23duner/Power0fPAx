@@ -688,7 +688,7 @@
             `;
             
             if (currentSong.listen1) {
-                listenHtml += `<p><a href="${currentSong.listen1}" target="_blank" style="color: #3498db; text-decoration: none;">链接1：点击这里听《${currentSong.title}》</a></p>`;
+                listenHtml += `<p>${currentSong.listen1}</p>`;
             }
             
             if (currentSong.listen2) {
@@ -696,11 +696,12 @@
             }
             
             if (currentSong.listen3) {
-                listenHtml += `<p><a href="${currentSong.listen3}" target="_blank" style="color: #3498db; text-decoration: none;">链接3：点击这里听《${currentSong.title}》</a></p>`;
+                listenHtml += `<p>${currentSong.listen3}</p>`;
             }
             
             listenHtml += '</div>';
         }
+        
         popupContent.innerHTML = `
             <div>
                 <h3>完整歌词：</h3>

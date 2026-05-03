@@ -166,7 +166,7 @@ const questionBank = [
   },
   {
     "title": "叙 (Intro)",
-    "lyrics": "",
+    "lyrics": "（纯音乐）",
     "description": "",
     "time": "2018-04-27  ",
     "tag": "耳盲",
