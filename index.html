@@ -21,7 +21,7 @@
             position: fixed;
             bottom: 10px;
             right: 10px;
-            font-size: 23px;
+            font-size: 13px;
             color: rgba(13, 219, 30, 0.3);
             z-index: 1000;
             pointer-events: none;
@@ -101,7 +101,32 @@
         .control-buttons button:hover {
             background: #d5dbdb;
         }
+        /* Tips 按钮样式 */
+        #tips-btn {
+            background-color: #ff9800 !important;
+            color: white !important;
+            position: relative;
+        }
 
+        #tips-btn.has-new-message::after {
+            content: '!';
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background-color: red;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        /* Tips 弹窗 */
+        #tips-overlay {
+            z-index: 1003;
+        }
         /* 歌词网格 */
         .lyrics-container {
             margin-bottom: 20px;
@@ -314,6 +339,7 @@
     <div class="control-buttons">
         <button onclick="initGame()">再来一局</button>
         <button onclick="showAnswer()">查看答案</button>
+        <button onclick="toggleTips()" id="tips-btn">来点提示</button>  <!-- 新增Tips按钮 -->
     </div>
 
     
@@ -356,6 +382,11 @@
     <source src="wrong/wrong3.mp3" type="audio/mpeg">
 </audio>
 
+<!-- 点击音效 -->
+<audio id="click-sound" preload="auto">
+    <source src="wood.mp3" type="audio/mpeg">
+</audio>
+
 
 <!-- 胜利弹窗 -->
 <div id="overlay" class="overlay">
@@ -371,7 +402,16 @@
 
 <!-- 提示框 -->
 <div id="alert-box" class="alert-box"></div>
-
+<!-- Tips 弹窗 -->
+<div id="tips-overlay" class="overlay">
+    <div class="popup">
+        <h2 id="tips-title">💡 Tips</h2>
+        <div id="tips-content"></div>
+        <div class="popup-buttons">
+            <button onclick="closeTips()">关闭</button>
+        </div>
+    </div>
+</div>
 <!-- 引入题库文件 -->
 <script src="songs.js"></script>
 
@@ -383,12 +423,28 @@
     let guessCount = 0;
     let startTime = null;
     let timerInterval = null;
-    
+    // let audioContext = null;
+    let selectedTag = 'all';  // 当前选择的标签
+    let tipsShown = {13: false, 23: false, 32: false};  // 记录哪些提示已经显示过
+    let clickSound = null;  // 添加点击音效变量
 
     // ====== 初始化 ======
     function initGame() {
-        // 随机选择一首歌
-        currentSong = questionBank[Math.floor(Math.random() * questionBank.length)];
+            // 获取选择的类型
+        let selectedTypes = JSON.parse(localStorage.getItem('selectedTypes')) || ["原创"];
+        
+        // 根据选择的类型过滤题库
+        let filteredSongs = questionBank.filter(song => selectedTypes.includes(song.type));
+    
+        // 从过滤后的题库中随机选择一首歌
+        if (filteredSongs.length > 0) {
+            currentSong = filteredSongs[Math.floor(Math.random() * filteredSongs.length)];
+        } else {
+            // 如果没有符合条件的歌曲，回退到全部题库
+            currentSong = questionBank[Math.floor(Math.random() * questionBank.length)];
+        }
+        
+        
         guessedLetters.clear();
         guessedWords.clear(); // 清空已猜过的字
         guessCount = 0;
@@ -404,6 +460,9 @@
         
         renderGrid();
         document.getElementById('guess-input').focus();
+
+        // 检查是否需要显示Tips通知
+        checkTipsNotification();
     }
 
     // ====== 更新已猜过的字显示 ======
@@ -421,7 +480,7 @@
         
         setTimeout(() => {
             alertBox.classList.remove('show');
-        }, 1500); // 1.5秒后自动消失
+        }, 2300); // 2.3秒后自动消失
     }
 
     // ====== 渲染网格 ======
@@ -532,12 +591,20 @@
 
     // ====== 猜字逻辑 ======
     function handleGuess() {
-
+        // 播放点击音效
+        if (clickSound && audioContext) {
+            clickSound.currentTime = 0;
+            clickSound.play().catch(e => console.log("点击音效播放失败:", e));
+        }
         // toggleSound();
         const input = document.getElementById('guess-input');
         const letter = input.value.trim();
         if (!letter) return;
-
+        
+        // 每次输入都增加猜词次数（包括重复输入）
+        guessCount++;
+        document.getElementById('guess-count').innerText = guessCount;
+    
         // 检查是否已经猜过这个字
         if (guessedWords.has(letter)) {
             showAlert(`"${letter}"猜过了`);
@@ -550,9 +617,6 @@
         guessedWords.add(letter);
         updateGuessedWordsDisplay();
         
-        guessCount++;
-        document.getElementById('guess-count').innerText = guessCount;
-
         // 检查是否在歌名或歌词中
         const fullText = currentSong.title + ' ' + currentSong.lyrics;
             
@@ -601,7 +665,29 @@
                 </div>
             `;
         }
+        // 显示歌曲链接
+        // 显示听歌链接（三个链接，处理空值）
+        let listenHtml = '';
+        if (currentSong.listen1 || currentSong.listen2 || currentSong.listen3) {
+            listenHtml = `
+                <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #27ae60;">
+                    <h3 style="margin-top: 0; color: #2c3e50;">🎵 听歌链接</h3>
+            `;
             
+            if (currentSong.listen1) {
+                listenHtml += `<p><a href="${currentSong.listen1}" target="_blank" style="color: #3498db; text-decoration: none;">链接1：点击这里听《${currentSong.title}》</a></p>`;
+            }
+            
+            if (currentSong.listen2) {
+                listenHtml += `<p><a href="${currentSong.listen2}" target="_blank" style="color: #3498db; text-decoration: none;">链接2：点击这里听《${currentSong.title}》</a></p>`;
+            }
+            
+            if (currentSong.listen3) {
+                listenHtml += `<p><a href="${currentSong.listen3}" target="_blank" style="color: #3498db; text-decoration: none;">链接3：点击这里听《${currentSong.title}》</a></p>`;
+            }
+            
+            listenHtml += '</div>';
+        }
         popupContent.innerHTML = `
             <div>
                 <h3>完整歌词：</h3>
@@ -675,6 +761,8 @@
             if (c) correctSounds.push(c);
             if (w) wrongSounds.push(w);
         }
+        // 初始化点击音效
+        clickSound = document.getElementById('click-sound');
     }
 
     function playCorrectSound() {
@@ -690,6 +778,172 @@
         a.currentTime = 0;
         a.play().catch(() => {});
     }
+
+    // ====== Tips 系统 ======
+    // 检查Tips通知
+    function checkTipsNotification() {
+        const tipsBtn = document.getElementById('tips-btn');
+        
+        // 检查是否有未读的提示
+        let hasNewMessage = false;
+        
+        if (selectedTag === 'all') {
+            hasNewMessage = true;  // 初始状态显示提示
+        }
+        if (guessCount >= 13 && !tipsShown[13]) {
+            hasNewMessage = true;
+        }
+        if (guessCount >= 23 && !tipsShown[23]) {
+            hasNewMessage = true;
+        }
+        if (guessCount >= 32 && !tipsShown[32]) {
+            hasNewMessage = true;
+        }
+        
+        if (hasNewMessage) {
+            tipsBtn.classList.add('has-new-message');
+        } else {
+            tipsBtn.classList.remove('has-new-message');
+        }
+    }
+
+        // ====== 切换Tips弹窗 ======
+    // ====== 切换Tips弹窗 ======
+    function toggleTips() {
+        const overlay = document.getElementById('tips-overlay');
+        const tipsTitle = document.getElementById('tips-title');
+        const tipsContent = document.getElementById('tips-content');
+        
+        // 清除新消息标记
+        document.getElementById('tips-btn').classList.remove('has-new-message');
+        
+        // 显示所有历史提示
+        tipsTitle.innerText = '💡 Tips';
+        
+        let html = '<div style="text-align: left;">';
+        
+        // 1. 题库选择部分（两个选项）
+        html += '<div style="margin-bottom: 20px; padding: 15px; background: #f0f8ff; border-radius: 8px;">';
+        html += '<h3 style="margin-top: 0; color: #2c3e50;">📚 题库可选</h3>';
+        
+        // 获取当前选择的类型（从 localStorage 或默认）
+        let selectedTypes = JSON.parse(localStorage.getItem('selectedTypes')) || ["原创"];
+        
+        // 两个选项：白举纲全部原创、人间失格音乐剧
+        const types = [
+            { value: "原创", label: "白举纲全部原创" },
+            { value: "初创演员", label: "人间失格音乐剧" }
+        ];
+        
+        html += '<div style="margin-top: 10px;">';
+        types.forEach(type => {
+            const isChecked = selectedTypes.includes(type.value) ? 'checked' : '';
+            html += `
+                <label style="display: block; margin-bottom: 8px; cursor: pointer;">
+                    <input type="checkbox" name="type" value="${type.value}" ${isChecked} 
+                        onchange="updateTypeSelection('${type.value}', this.checked)">
+                    ${type.label}
+                </label>
+            `;
+        });
+        html += '</div>';
+        
+        // 应用按钮
+        html += '<button onclick="applyTypeFilter()" style="margin-top: 10px; padding: 8px 16px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">应用筛选</button>';
+        html += '</div>';
+        
+        // 2. 历史提示部分
+        html += '<div style="margin-bottom: 20px;">';
+        html += '<h3 style="color: #2c3e50;">📝 提示</h3>';
+        
+        // 第13次提示（如果已显示）
+               
+        if (tipsShown[13]) {
+            html += `<div style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">`;
+            html += `<p><strong>提示1：</strong><a href="https://my.feishu.cn/share/base/dashboard/shrcncemYWUU7l4w0mGZUi3mjCf" target="_blank" style="color: #3498db; text-decoration: none;">点击查看词云图</a></p>`;
+            html += '</div>';
+        }
+        
+        // 第23次提示（如果已显示）
+        if (tipsShown[23]) {
+            html += `<div style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">`;
+            html += `<p><strong>提示2：</strong>这首歌的创作年份：${currentSong.time}</p>`;
+            html += '</div>';
+        }
+        
+        // 第32次提示（如果已显示）
+        if (tipsShown[32]) {
+            html += `<div style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 5px;">`;
+            html += `<p><strong>提示3：</strong>这首歌出自：${currentSong.tag}</p>`;
+            html += '</div>';
+        }
+        
+        // 如果没有历史提示
+        if (!tipsShown[13] && !tipsShown[23] && !tipsShown[32]) {
+            html += '<p>多猜几次即可解锁提示^_^</p>';
+        }
+        
+        html += '</div>';
+        html += '</div>';
+        
+        tipsContent.innerHTML = html;
+        overlay.classList.add('active');
+    }
+
+        // 更新类型选择
+    function updateTypeSelection(type, isChecked) {
+        let selectedTypes = JSON.parse(localStorage.getItem('selectedTypes')) || ["原创"];
+        
+        if (isChecked) {
+            if (!selectedTypes.includes(type)) {
+                selectedTypes.push(type);
+            }
+        } else {
+            selectedTypes = selectedTypes.filter(t => t !== type);
+        }
+        
+        // 至少保留一个选项
+        if (selectedTypes.length === 0) {
+            selectedTypes = ["原创"];
+        }
+        
+        localStorage.setItem('selectedTypes', JSON.stringify(selectedTypes));
+    }
+
+    // 应用类型筛选
+    function applyTypeFilter() {
+        // 刷新页面
+        location.reload();
+    }
+    // 第13次提示
+    function showTip13(container) {
+        let html = '<div style="text-align: left;">';
+        html += `<p><strong>这首歌的创作年份：</strong>${currentSong.time}</p>`;
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    // 第23次提示
+    function showTip23(container) {
+        let html = '<div style="text-align: left;">';
+        html += `<p><strong>这首歌出自：</strong>${currentSong.tag} </p>`;
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    // 第32次提示
+    function showTip32(container) {
+        let html = '<div style="text-align: left;">';
+        html += `<p><strong>这首歌的风格：</strong>摇滚/流行</p>`;
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    // 关闭Tips弹窗
+    function closeTips() {
+        document.getElementById('tips-overlay').classList.remove('active');
+    }
+
 
     // 绑定回车键
     document.getElementById('guess-input').addEventListener('keypress', e => {
